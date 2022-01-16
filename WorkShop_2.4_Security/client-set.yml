@@ -15,7 +15,8 @@ spec:
   template:
     metadata:
       labels:
-        role: client 
+        role: client
+        name: "client"
     spec:
       containers:
       - name: client 

@@ -15,7 +15,7 @@ spec:
   - port: 6379
     targetPort: 6379 
   selector:
-    role: backend 
+    role: backend
 ---
 apiVersion: v1
 kind: ReplicationController
@@ -27,7 +27,8 @@ spec:
   template:
     metadata:
       labels:
-        role: backend 
+        role: backend
+        name: "backend"
     spec:
       containers:
       - name: backend 

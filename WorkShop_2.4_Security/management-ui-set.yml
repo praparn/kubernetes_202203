@@ -29,7 +29,8 @@ spec:
   template:
     metadata:
       labels:
-        role: management-ui 
+        role: management-ui
+        name: "management-ui"
     spec:
       containers:
       - name: management-ui 
