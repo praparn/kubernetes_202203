@@ -110,12 +110,12 @@ func main() {
 	_, err = kubeClient.NetworkingV1().IngressClasses().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			if errors.IsUnauthorized(err) || !errors.IsForbidden(err) {
-				klog.Fatalf("Error searching IngressClass: Please verify your RBAC and allow Ingress Controller to list and get Ingress Classes: %v", err)
+			if errors.IsForbidden(err) {
+				klog.Warningf("No permissions to list and get Ingress Classes: %v, IngressClass feature will be disabled", err)
+				conf.IngressClassConfiguration.IgnoreIngressClass = true
 			}
 		}
 	}
-
 	conf.Client = kubeClient
 
 	err = k8s.GetIngressPod(kubeClient)
@@ -133,12 +133,14 @@ func main() {
 
 	mc := metric.NewDummyCollector()
 	if conf.EnableMetrics {
-		mc, err = metric.NewCollector(conf.MetricsPerHost, reg, conf.IngressClassConfiguration.Controller)
+		mc, err = metric.NewCollector(conf.MetricsPerHost, reg, conf.IngressClassConfiguration.Controller, *conf.MetricsBuckets)
 		if err != nil {
 			klog.Fatalf("Error creating prometheus collector:  %v", err)
 		}
 	}
-	mc.Start()
+	// Pass the ValidationWebhook status to determine if we need to start the collector
+	// for the admissionWebhook
+	mc.Start(conf.ValidationWebhook)
 
 	if conf.EnableProfiling {
 		go registerProfiler()
@@ -153,14 +155,14 @@ func main() {
 	go startHTTPServer(conf.HealthCheckHost, conf.ListenPorts.Health, mux)
 	go ngx.Start()
 
-	handleSigterm(ngx, func(code int) {
+	handleSigterm(ngx, conf.PostShutdownGracePeriod, func(code int) {
 		os.Exit(code)
 	})
 }
 
 type exiter func(code int)
 
-func handleSigterm(ngx *controller.NGINXController, exit exiter) {
+func handleSigterm(ngx *controller.NGINXController, delay int, exit exiter) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
 	<-signalChan
@@ -172,8 +174,8 @@ func handleSigterm(ngx *controller.NGINXController, exit exiter) {
 		exitCode = 1
 	}
 
-	klog.InfoS("Handled quit, awaiting Pod deletion")
-	time.Sleep(10 * time.Second)
+	klog.Infof("Handled quit, delaying controller exit for %d seconds", delay)
+	time.Sleep(time.Duration(delay) * time.Second)
 
 	klog.InfoS("Exiting", "code", exitCode)
 	exit(exitCode)

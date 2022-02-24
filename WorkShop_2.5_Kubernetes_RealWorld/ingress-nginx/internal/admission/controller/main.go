@@ -72,7 +72,6 @@ func (ia *IngressAdmission) HandleAdmission(obj runtime.Object) (runtime.Object,
 	codec := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{
 		Pretty: true,
 	})
-	codec.Decode(review.Request.Object.Raw, nil, nil)
 	_, _, err := codec.Decode(review.Request.Object.Raw, nil, &ingress)
 	if err != nil {
 		klog.ErrorS(err, "failed to decode ingress")
@@ -87,7 +86,7 @@ func (ia *IngressAdmission) HandleAdmission(obj runtime.Object) (runtime.Object,
 	}
 
 	if err := ia.Checker.CheckIngress(&ingress); err != nil {
-		klog.ErrorS(err, "invalid ingress configuration", "ingress", fmt.Sprintf("%v/%v", review.Request.Name, review.Request.Namespace))
+		klog.ErrorS(err, "invalid ingress configuration", "ingress", fmt.Sprintf("%v/%v", review.Request.Namespace, review.Request.Name))
 		status.Allowed = false
 		status.Result = &metav1.Status{
 			Status: metav1.StatusFailure, Code: http.StatusBadRequest, Reason: metav1.StatusReasonBadRequest,
@@ -98,7 +97,7 @@ func (ia *IngressAdmission) HandleAdmission(obj runtime.Object) (runtime.Object,
 		return review, nil
 	}
 
-	klog.InfoS("successfully validated configuration, accepting", "ingress", fmt.Sprintf("%v/%v", review.Request.Name, review.Request.Namespace))
+	klog.InfoS("successfully validated configuration, accepting", "ingress", fmt.Sprintf("%v/%v", review.Request.Namespace, review.Request.Name))
 	status.Allowed = true
 	review.Response = status
 

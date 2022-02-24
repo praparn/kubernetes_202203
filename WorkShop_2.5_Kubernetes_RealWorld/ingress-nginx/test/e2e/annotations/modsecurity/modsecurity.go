@@ -165,7 +165,9 @@ var _ = framework.DescribeAnnotation("modsecurity owasp", func() {
 			"nginx.ingress.kubernetes.io/enable-modsecurity":  "true",
 			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
 		}
-
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
 		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
 		f.EnsureIngress(ing)
 
@@ -198,7 +200,9 @@ var _ = framework.DescribeAnnotation("modsecurity owasp", func() {
 		annotations := map[string]string{
 			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
 		}
-
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
 		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
 		f.EnsureIngress(ing)
 
@@ -232,7 +236,9 @@ var _ = framework.DescribeAnnotation("modsecurity owasp", func() {
 		annotations := map[string]string{
 			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
 		}
-
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
 		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
 		f.EnsureIngress(ing)
 
@@ -268,7 +274,9 @@ var _ = framework.DescribeAnnotation("modsecurity owasp", func() {
 		annotations := map[string]string{
 			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
 		}
-
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
 		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
 		f.EnsureIngress(ing)
 
@@ -282,7 +290,86 @@ var _ = framework.DescribeAnnotation("modsecurity owasp", func() {
 
 		f.WaitForNginxServer(host,
 			func(server string) bool {
-				return true
+				return strings.Contains(server, "SecRequestBodyAccess On")
+			})
+
+		f.HTTPTestClient().
+			GET("/").
+			WithHeader("Host", host).
+			WithHeader("User-Agent", "block-ua").
+			Expect().
+			Status(http.StatusForbidden)
+	})
+
+	ginkgo.It("should enable modsecurity through the config map but ignore snippet as disabled by admin", func() {
+		host := "modsecurity.foo.com"
+		nameSpace := f.Namespace
+
+		snippet := `SecRequestBodyAccess On
+		SecAuditEngine RelevantOnly
+		SecAuditLogParts ABIJDEFHZ
+		SecAuditLog /dev/stdout
+		SecAuditLogType Serial
+		SecRule REQUEST_HEADERS:User-Agent \"block-ua\" \"log,deny,id:107,status:403,msg:\'UA blocked\'\"`
+
+		annotations := map[string]string{
+			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
+		}
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
+		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
+		f.EnsureIngress(ing)
+
+		expectedComment := "SecRuleEngine On"
+
+		f.SetNginxConfigMapData(map[string]string{
+			"enable-modsecurity":           "true",
+			"enable-owasp-modsecurity-crs": "true",
+			"allow-snippet-annotations":    "false",
+			"modsecurity-snippet":          expectedComment,
+		})
+
+		f.WaitForNginxServer(host,
+			func(server string) bool {
+				return !strings.Contains(server, "block-ua")
+			})
+
+		f.HTTPTestClient().
+			GET("/").
+			WithHeader("Host", host).
+			WithHeader("User-Agent", "block-ua").
+			Expect().
+			Status(http.StatusOK)
+	})
+
+	ginkgo.It("should disable default modsecurity conf setting when modsecurity-snippet is specified", func() {
+		host := "modsecurity.foo.com"
+		nameSpace := f.Namespace
+
+		snippet := `SecRuleEngine On
+		SecRequestBodyAccess On
+		SecAuditEngine RelevantOnly
+		SecAuditLogParts ABIJDEFHZ
+		SecAuditLogType Concurrent
+		SecAuditLog /var/tmp/modsec_audit.log
+		SecAuditLogStorageDir /var/tmp/
+		SecRule REQUEST_HEADERS:User-Agent \"block-ua\" \"log,deny,id:107,status:403,msg:\'UA blocked\'\"`
+
+		annotations := map[string]string{
+			"nginx.ingress.kubernetes.io/enable-modsecurity":  "true",
+			"nginx.ingress.kubernetes.io/modsecurity-snippet": snippet,
+		}
+		f.UpdateNginxConfigMapData("annotation-value-word-blocklist", "load_module, lua_package, _by_lua, location, root, {, }")
+		// Sleep a while just to guarantee that the configmap is applied
+		framework.Sleep()
+		ing := framework.NewSingleIngress(host, "/", host, nameSpace, framework.EchoService, 80, annotations)
+		f.EnsureIngress(ing)
+
+		f.WaitForNginxServer(host,
+			func(server string) bool {
+				return !strings.Contains(server, "modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;") &&
+					strings.Contains(server, "SecAuditLog /var/tmp/modsec_audit.log")
 			})
 
 		f.HTTPTestClient().

@@ -39,10 +39,10 @@ var _ = framework.DescribeAnnotation("canary-*", func() {
 
 	ginkgo.BeforeEach(func() {
 		// Deployment for main backend
-		f.NewEchoDeploymentWithReplicas(1)
+		f.NewEchoDeployment()
 
 		// Deployment for canary backend
-		f.NewEchoDeploymentWithNameAndReplicas(canaryService, 1)
+		f.NewEchoDeployment(framework.WithDeploymentName(canaryService))
 	})
 
 	ginkgo.Context("when canary is created", func() {
@@ -132,7 +132,7 @@ var _ = framework.DescribeAnnotation("canary-*", func() {
 
 				ginkgo.By("returning a 503 status when the mainline deployment has 0 replicas and a request is sent to the canary")
 
-				f.NewEchoDeploymentWithReplicas(0)
+				f.NewEchoDeployment(framework.WithDeploymentReplicas(0))
 
 				resp, _, errs := gorequest.New().
 					Get(f.GetURL(framework.HTTP)).
@@ -145,8 +145,8 @@ var _ = framework.DescribeAnnotation("canary-*", func() {
 
 				ginkgo.By("returning a 200 status when the canary deployment has 0 replicas and a request is sent to the mainline ingress")
 
-				f.NewEchoDeploymentWithReplicas(1)
-				f.NewDeployment(canaryService, "gcr.io/kubernetes-e2e-test-images/echoserver:2.2", 8080, 0)
+				f.NewEchoDeployment()
+				f.NewDeployment(canaryService, "k8s.gcr.io/e2e-test-images/echoserver:2.3", 8080, 0)
 
 				resp, _, errs = gorequest.New().
 					Get(f.GetURL(framework.HTTP)).
@@ -758,6 +758,39 @@ var _ = framework.DescribeAnnotation("canary-*", func() {
 			canaryAnnotations := map[string]string{
 				"nginx.ingress.kubernetes.io/canary":        "true",
 				"nginx.ingress.kubernetes.io/canary-weight": "100",
+			}
+
+			canaryIng := framework.NewSingleIngress(canaryIngName, "/", host,
+				f.Namespace, canaryService, 80, canaryAnnotations)
+			f.EnsureIngress(canaryIng)
+
+			f.HTTPTestClient().
+				GET("/").
+				WithHeader("Host", host).
+				Expect().
+				Status(http.StatusOK).
+				Body().
+				Contains(canaryService)
+		})
+
+		ginkgo.It("should route requests only to canary if canary weight is equal to canary weight total", func() {
+			host := "foo"
+			annotations := map[string]string{}
+
+			ing := framework.NewSingleIngress(host, "/", host,
+				f.Namespace, framework.EchoService, 80, annotations)
+			f.EnsureIngress(ing)
+
+			f.WaitForNginxServer(host,
+				func(server string) bool {
+					return strings.Contains(server, "server_name foo")
+				})
+
+			canaryIngName := fmt.Sprintf("%v-canary", host)
+			canaryAnnotations := map[string]string{
+				"nginx.ingress.kubernetes.io/canary":              "true",
+				"nginx.ingress.kubernetes.io/canary-weight":       "1000",
+				"nginx.ingress.kubernetes.io/canary-weight-total": "1000",
 			}
 
 			canaryIng := framework.NewSingleIngress(canaryIngName, "/", host,

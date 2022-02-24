@@ -1,9 +1,9 @@
 apiVersion: "v1"
 kind: Pod
 metadata:
-  name: web
+  name: web1
   labels:
-    name: "web"
+    name: "web1"
     owner: "Praparn_L"
     version: "1.0"
     module: "web"

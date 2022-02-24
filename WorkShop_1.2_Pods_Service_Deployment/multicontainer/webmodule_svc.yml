@@ -10,7 +10,6 @@ metadata:
     environment: "development"
 spec:
   selector:
-    name: "web"
     owner: "Praparn_L"
     version: "1.0"
     module: "web"

@@ -36,12 +36,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"k8s.io/ingress-nginx/internal/file"
 	"k8s.io/ingress-nginx/internal/ingress"
 	"k8s.io/ingress-nginx/internal/ingress/annotations"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/canary"
+	"k8s.io/ingress-nginx/internal/ingress/annotations/ipwhitelist"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/proxyssl"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/sessionaffinity"
@@ -57,11 +59,16 @@ import (
 )
 
 type fakeIngressStore struct {
-	ingresses []*ingress.Ingress
+	ingresses     []*ingress.Ingress
+	configuration ngx_config.Configuration
 }
 
-func (fakeIngressStore) GetBackendConfiguration() ngx_config.Configuration {
-	return ngx_config.Configuration{}
+func (fakeIngressStore) GetIngressClass(ing *networking.Ingress, icConfig *ingressclass.IngressClassConfiguration) (string, error) {
+	return "nginx", nil
+}
+
+func (fis fakeIngressStore) GetBackendConfiguration() ngx_config.Configuration {
+	return fis.configuration
 }
 
 func (fakeIngressStore) GetConfigMap(key string) (*corev1.ConfigMap, error) {
@@ -235,6 +242,9 @@ func TestCheckIngress(t *testing.T) {
 		})
 
 		t.Run("When the default annotation prefix is used despite an override", func(t *testing.T) {
+			defer func() {
+				parser.AnnotationsPrefix = "nginx.ingress.kubernetes.io"
+			}()
 			parser.AnnotationsPrefix = "ingress.kubernetes.io"
 			ing.ObjectMeta.Annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "GRPC"
 			nginx.command = testNginxTestCommand{
@@ -243,6 +253,44 @@ func TestCheckIngress(t *testing.T) {
 			}
 			if nginx.CheckIngress(ing) == nil {
 				t.Errorf("with a custom annotation prefix, ingresses using the default should be rejected")
+			}
+		})
+
+		t.Run("When snippets are disabled and user tries to use snippet annotation", func(t *testing.T) {
+			nginx.store = fakeIngressStore{
+				ingresses: []*ingress.Ingress{},
+				configuration: ngx_config.Configuration{
+					AllowSnippetAnnotations: false,
+				},
+			}
+			nginx.command = testNginxTestCommand{
+				t:   t,
+				err: nil,
+			}
+			ing.ObjectMeta.Annotations["nginx.ingress.kubernetes.io/server-snippet"] = "bla"
+			if err := nginx.CheckIngress(ing); err == nil {
+				t.Errorf("with a snippet annotation, ingresses using the default should be rejected")
+			}
+		})
+
+		t.Run("When invalid directives are used in annotation values", func(t *testing.T) {
+			nginx.store = fakeIngressStore{
+				ingresses: []*ingress.Ingress{},
+				configuration: ngx_config.Configuration{
+					AnnotationValueWordBlocklist: "invalid_directive, another_directive",
+				},
+			}
+			nginx.command = testNginxTestCommand{
+				t:   t,
+				err: nil,
+			}
+			ing.ObjectMeta.Annotations["nginx.ingress.kubernetes.io/custom-headers"] = "invalid_directive"
+			if err := nginx.CheckIngress(ing); err == nil {
+				t.Errorf("with an invalid value in annotation the ingress should be rejected")
+			}
+			ing.ObjectMeta.Annotations["nginx.ingress.kubernetes.io/custom-headers"] = "another_directive"
+			if err := nginx.CheckIngress(ing); err == nil {
+				t.Errorf("with an invalid value in annotation the ingress should be rejected")
 			}
 		})
 
@@ -275,6 +323,9 @@ func TestCheckIngress(t *testing.T) {
 		})
 
 		t.Run("When the ingress is in a different namespace than the watched one", func(t *testing.T) {
+			defer func() {
+				nginx.cfg.Namespace = "test-namespace"
+			}()
 			nginx.command = testNginxTestCommand{
 				t:   t,
 				err: fmt.Errorf("test error"),
@@ -2211,6 +2262,84 @@ func TestGetBackendServers(t *testing.T) {
 				}
 			},
 		},
+		{
+			Ingresses: []*ingress.Ingress{
+				{
+					Ingress: networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "not-allowed-snippet",
+							Namespace: "default",
+							Annotations: map[string]string{
+								"nginx.ingress.kubernetes.io/server-snippet":         "bla",
+								"nginx.ingress.kubernetes.io/configuration-snippet":  "blo",
+								"nginx.ingress.kubernetes.io/whitelist-source-range": "10.0.0.0/24",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{
+								{
+									Host: "example.com",
+									IngressRuleValue: networking.IngressRuleValue{
+										HTTP: &networking.HTTPIngressRuleValue{
+											Paths: []networking.HTTPIngressPath{
+												{
+													Path:     "/path1",
+													PathType: &pathTypePrefix,
+													Backend: networking.IngressBackend{
+														Service: &networking.IngressServiceBackend{
+															Name: "path1-svc",
+															Port: networking.ServiceBackendPort{
+																Number: 80,
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ParsedAnnotations: &annotations.Ingress{
+						Whitelist:            ipwhitelist.SourceRange{CIDR: []string{"10.0.0.0/24"}},
+						ServerSnippet:        "bla",
+						ConfigurationSnippet: "blo",
+					},
+				},
+			},
+			Validate: func(ingresses []*ingress.Ingress, upstreams []*ingress.Backend, servers []*ingress.Server) {
+				if len(servers) != 2 {
+					t.Errorf("servers count should be 2, got %d", len(servers))
+					return
+				}
+				s := servers[1]
+
+				if s.ServerSnippet != "" {
+					t.Errorf("server snippet should be empty, got '%s'", s.ServerSnippet)
+				}
+
+				if s.Locations[0].ConfigurationSnippet != "" {
+					t.Errorf("config snippet should be empty, got '%s'", s.Locations[0].ConfigurationSnippet)
+				}
+
+				if len(s.Locations[0].Whitelist.CIDR) != 1 || s.Locations[0].Whitelist.CIDR[0] != "10.0.0.0/24" {
+					t.Errorf("allow list was incorrectly dropped, len should be 1 and contain 10.0.0.0/24")
+				}
+
+			},
+			SetConfigMap: func(ns string) *v1.ConfigMap {
+				return &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:     "config",
+						SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
+					},
+					Data: map[string]string{
+						"allow-snippet-annotations": "false",
+					},
+				}
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -2258,6 +2387,7 @@ func newNGINXController(t *testing.T) *NGINXController {
 
 	storer := store.New(
 		ns,
+		labels.Nothing(),
 		fmt.Sprintf("%v/config", ns),
 		fmt.Sprintf("%v/tcp", ns),
 		fmt.Sprintf("%v/udp", ns),
@@ -2321,6 +2451,7 @@ func newDynamicNginxController(t *testing.T, setConfigMap func(string) *v1.Confi
 
 	storer := store.New(
 		ns,
+		labels.Nothing(),
 		fmt.Sprintf("%v/config", ns),
 		fmt.Sprintf("%v/tcp", ns),
 		fmt.Sprintf("%v/udp", ns),

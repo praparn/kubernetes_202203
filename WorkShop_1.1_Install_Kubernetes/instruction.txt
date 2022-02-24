@@ -1,6 +1,20 @@
 Link for download:
-1. Check LABSheet.xlsx for check information about your machine and your "docker_lab" (For MAC OS X) or "docker_lab.ppk" (For Windows)
-2. Check Document for connect to your AWS
+1. Check LABSheet.xlsx for check information about your machine and your key
+
+2. Install pre-requiste binary as detail below:
+  #Cilium Cli
+  curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
+  sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+  sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+  rm cilium-linux-amd64.tar.gz{,.sha256sum}
+
+  #Hubble Cli
+  export HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
+  curl -L --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-linux-amd64.tar.gz{,.sha256sum}
+  sha256sum --check hubble-linux-amd64.tar.gz.sha256sum
+  sudo tar xzvfC hubble-linux-amd64.tar.gz /usr/local/bin
+  rm hubble-linux-amd64.tar.gz{,.sha256sum}
+
 3. Test docker command by running: 
     sudo ctr --version
     sudo ctr image pull docker.io/library/hello-world:latest
@@ -13,7 +27,7 @@ Link for download:
 
 4. Clone workshop to aws machine by command: 
     cd ~/
-    git clone https://github.com/praparn/kubernetes_202109.git
+    git clone https://github.com/praparn/kubernetes_202203.git
 
 5. Check module for IPVS by command:
     sudo lsmod | grep -e ip_vs -e nf_conntrack_ipv4
@@ -31,7 +45,7 @@ libcrc32c              16384  2 nf_conntrack,ip_vs
 
 6. Initial kubernetes by command:
     sudo su -
-    kubeadm init --config /home/ubuntu/kubernetes_202109/WorkShop_1.1_Install_Kubernetes/kubeadm-init-basic-containerd.yaml
+    kubeadm init --config /home/ubuntu/kubernetes_202203/WorkShop_1.1_Install_Kubernetes/kubeadm-init-basic-containerd.yaml
     exit
 
 7. Setup credential for regular user by command:
@@ -41,16 +55,15 @@ libcrc32c              16384  2 nf_conntrack,ip_vs
   	sudo chown $(id -u):$(id -g) $HOME/.kube/config
 	kubectl taint nodes --all node-role.kubernetes.io/master-
 
-8. Install network component by command:
-    kubectl apply -f https://raw.githubusercontent.com/praparn/kubernetes_202109/master/WorkShop_2.5_Kubernetes_RealWorld/calico_tuning.yaml
+8. Install cilium network component by command:
+    cilium install
+    cilium hubble enable --ui 
     watch kubectl get pods --all-namespaces
-
-
-    *Optional: For weavenet
-    --------------------------------------------------------------------------
-    kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
-    watch kubectl get pods --all-namespaces
-    --------------------------------------------------------------------------
+    cilium status
+    -----------------------------------------------
+    Optional: Case we need to install via calico
+    kubectl apply -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_2.5_Kubernetes_RealWorld/calico_tuning.yaml
+    -----------------------------------------------
 
 9. Check IPVS mode on kube-proxy by command:
     kubectl get pods -n kube-system ==> Record kube-proxy name
@@ -80,10 +93,11 @@ libcrc32c              16384  2 nf_conntrack,ip_vs
     kubectl delete pods/webtest
     kubectl delete svc/webtest
 
-15. Now all workshop is on "/home/ubuntu/kubernetes_202109"
+15. Now all workshop is on "/home/ubuntu/kubernetes_202203"
 
 
 *Remark: In case you need to reinitial all this lab again please kindly following command below (*Warnning: This will reset all lab that you had been operate before)
+    cilium uninstall --wait
     sudo su -
     kubeadm reset
 	rm -rf /var/lib/etcd

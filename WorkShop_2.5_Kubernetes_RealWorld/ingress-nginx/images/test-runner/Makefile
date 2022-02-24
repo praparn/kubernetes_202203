@@ -23,7 +23,7 @@ REGISTRY ?= local
 
 IMAGE = $(REGISTRY)/e2e-test-runner
 
-NGINX_BASE_IMAGE ?= k8s.gcr.io/ingress-nginx/nginx:v20210904-gb7c973dce@sha256:fac972a7e43b18408ecb9e87da868df519428294e2e988c16be72479ee873c0e
+NGINX_BASE_IMAGE ?= k8s.gcr.io/ingress-nginx/nginx:v20210926-g5662db450@sha256:1ef404b5e8741fe49605a1f40c3fdd8ef657aecdb9526ea979d1672eeabd0cd9
 
 # required to enable buildx
 export DOCKER_CLI_EXPERIMENTAL=enabled
@@ -39,7 +39,7 @@ build: ensure-buildx
 		--progress=$(PROGRESS) \
 		--pull \
 		--build-arg BASE_IMAGE=$(NGINX_BASE_IMAGE) \
-		--build-arg GOLANG_VERSION=1.17.0 \
+		--build-arg GOLANG_VERSION=1.17.6 \
 		--build-arg ETCD_VERSION=3.4.3-0 \
 		--build-arg K8S_RELEASE=v1.21.3 \
 		--build-arg RESTY_CLI_VERSION=0.27 \

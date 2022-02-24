@@ -1,5 +1,15 @@
 # Custom Headers
 
+## Caveats
+
+Changes to the custom header config maps do not force a reload of the ingress-nginx-controllers.
+
+### Workaround
+
+To work around this limitation, perform a rolling restart of the deployment.
+
+## Example
+
 This example demonstrates configuration of the nginx ingress controller via
 a ConfigMap to pass a custom list of headers to the upstream
 server.
@@ -17,6 +27,14 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main
 ```
 
 The nginx ingress controller will read the `ingress-nginx/ingress-nginx-controller` ConfigMap, find the `proxy-set-headers` key, read HTTP headers from the `ingress-nginx/custom-headers` ConfigMap, and include those HTTP headers in all requests flowing from nginx to the backends.
+
+
+The above example was for passing a custom list of headers to the upstream server.
+To pass the custom headers before sending response traffic to the client, use the add-headers key:
+
+```console
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/docs/examples/customization/custom-headers/configmap-client-response.yaml
+```
 
 ## Test
 
