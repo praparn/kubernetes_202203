@@ -72,7 +72,7 @@ This workshop will create Pods with multiple container
 	kubectl create -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_1.2_Pods_Service_Deployment/multicontainer/databasemodule_svc.yml
 	kubectl get svc
 
-4. Create Pods and Service for webservicemodule (web) by command (Step-by-Step Wait until previous complete before next step):
+4. Create Pods and Service for webservicemodule (web1) by command (Step-by-Step Wait until previous complete before next step):
 	kubectl create -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_1.2_Pods_Service_Deployment/multicontainer/webmodule_pod.yml
 	kubectl get pods
 	kubectl create -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_1.2_Pods_Service_Deployment/multicontainer/webmodule_svc.yml
@@ -116,8 +116,8 @@ This workshop will create Pods with multiple container
 		kubectl create -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_1.2_Pods_Service_Deployment/multicontainer/webmodule_pod2.yml
 		kubectl get pods
 
-13. Delete existing Pods "web" by command:
-		kubectl delete pods web
+13. Delete existing Pods "web1" by command:
+		kubectl delete pods web1
 
 14. Test get webpage by command: curl http://$Server_IP:$Server_Port/
 
