@@ -65,3 +65,5 @@ kubectl delete namespace monitoring
    kubectl delete crd servicemonitors.monitoring.coreos.com
    kubectl delete crd thanosrulers.monitoring.coreos.com
    kubectl delete namespace monitoring
+   kubectl delete namespace ingress-nginx
+
