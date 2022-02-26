@@ -39,7 +39,7 @@ scheduler:
     "feature-gates": "APIServerTracing=true,ExpandedDNSConfig=true"
 certificatesDir: "/etc/kubernetes/pki"
 imageRepository: "k8s.gcr.io"
-clusterName: "KubernetesLab"
+clusterName: "kuberneteslab"
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
