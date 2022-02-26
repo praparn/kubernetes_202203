@@ -78,7 +78,7 @@ ls ~/labreadonly*
 cd ~
 cp ~/.kube/config ~/.kube/config_backup
 kubectl config set-credentials labreadonly --client-certificate=/home/ubuntu/labreadonly.crt  --client-key=/home/ubuntu/labreadonly.key
-kubectl config set-context labreadonly-context --cluster=KubernetesLab --namespace=security --user=labreadonly
+kubectl config set-context labreadonly-context --cluster=kuberneteslab --namespace=security --user=labreadonly
 
 7. Test use credential for operate by command: (Expect: Forbidden)
 kubectl --context=labreadonly-context get pods

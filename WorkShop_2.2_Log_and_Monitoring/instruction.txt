@@ -45,6 +45,12 @@ Part1: Container Logging:
 	*Test by open browser: 
 	https://<Public IP>:8443
 
-11. Cleanup lab by command:
+11. Test cilium hubble ui by command:
+    cilium hubble ui
+
+    *Test by open browser: 
+	http://<Public IP>:12000
+
+12. Cleanup lab by command:
 	kubectl delete -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_2.2_Log_and_Monitoring/databasemodule_deploy.yml
 	kubectl delete -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_2.2_Log_and_Monitoring/webmodule_deploy.yml
