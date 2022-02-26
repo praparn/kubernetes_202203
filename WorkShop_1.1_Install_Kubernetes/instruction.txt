@@ -57,9 +57,10 @@ libcrc32c              16384  2 nf_conntrack,ip_vs
 
 8. Install cilium network component by command:
     cilium install
-    cilium hubble enable --ui
     cilium status
     watch kubectl get pods --all-namespaces
+    cilium hubble enable --ui
+    cilium status
     -----------------------------------------------
     Optional: Case we need to install via calico
     kubectl apply -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_2.5_Kubernetes_RealWorld/calico_tuning.yaml

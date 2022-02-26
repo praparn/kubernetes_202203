@@ -2,12 +2,10 @@ Instruction for Workshop 2.5 Kubernetes in RealWorld:
 Note: This instruction will start lab for kubernetes's cluster for real workshop:
 
 0. Reinitial your machine before grouping with your friend by command:
-    (master node)
+	cilium hubble disable
     cilium uninstall --wait
-
-	(all node)
 	sudo su -
-    kubeadm reset
+    kubeadm reset					==> answer: y
 	rm -rf /var/lib/etcd
 	rm -rf /home/ubuntu/.kube
 	ctr -n k8s.io i rm $(ctr -n k8s.io i ls -q)
@@ -33,9 +31,9 @@ Token: XXXXX
 Ingress CNAME: XXXXX
 
 Machine name		            			Roles:			IP Address: (Private)		IP Address: (Public)			Hostname
-Training_DockerZerotoHero_StudentGX_1	   	Master			10.0.1.X					X.X.X.X							ip-10-0-1-X.ap-southeast-1.compute.internal
-Training_DockerZerotoHero_StudentGX_2       NodePort		10.0.1.X					X.X.X.X							ip-10-0-1-X.ap-southeast-1.compute.internal
-Training_DockerZerotoHero_StudentGX_3   	NodePort		10.0.1.X					X.X.X.X							ip-10-0-1-X.ap-southeast-1.compute.internal
+Training_DockerZerotoHero_StudentGX_1	   	Master			10.21.1.X					X.X.X.X							ip-10-21-1-X.ap-southeast-1.compute.internal
+Training_DockerZerotoHero_StudentGX_2       NodePort		10.21.1.X					X.X.X.X							ip-10-21-1-X.ap-southeast-1.compute.internal
+Training_DockerZerotoHero_StudentGX_3   	NodePort		10.21.1.X					X.X.X.X							ip-10-21-1-X.ap-southeast-1.compute.internal
 ===================================================
 0. Follow document pdf for access ssh (Windows/MACOS)
 
@@ -112,11 +110,15 @@ UDP  ip-10-96-0-10.ap-southeast-1 rr
 
 9. (Master) Create cilium network component by command:
     cilium install
-    cilium hubble enable --ui 
+	cilium status
+	-----------------------------------------------
+    Optional: Case we need to install via calico
+    kubectl apply -f https://raw.githubusercontent.com/praparn/kubernetes_202203/master/WorkShop_2.5_Kubernetes_RealWorld/calico_tuning.yaml
+    -----------------------------------------------
 
-10. (Master) Check master readiness and dns by command (Take 5 - 10 min):
+10. (Master) Check master readiness and dns by command and enable hubble ui (Take 5 - 10 min):
 	watch kubectl get pods --all-namespaces
-    cilium status
+	cilium hubble enable --ui 
 
 ========================================  Create Dashboard =====================================================================
 11. (Master) Create Dashboard by command:
